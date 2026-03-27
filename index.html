@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chromatic — Color Palette Generator</title>
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  :root{--bg:#0a0a0f;--surface:#14141f;--border:#1e1e2e;--text:#e0e0e8;--muted:#6b6b80;--accent:#7c6aef}
+  body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
+
+  .container{max-width:960px;margin:0 auto;padding:2rem 1.5rem}
+
+  header{text-align:center;margin-bottom:3rem}
+  h1{font-size:2.2rem;font-weight:700;letter-spacing:-0.03em;background:linear-gradient(135deg,#7c6aef,#e06aaf,#efb86a);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:0.4rem}
+  .subtitle{color:var(--muted);font-size:0.95rem}
+
+  .seed-section{display:flex;align-items:center;justify-content:center;gap:1rem;margin-bottom:2.5rem;flex-wrap:wrap}
+  .color-input-wrap{position:relative;width:56px;height:56px;border-radius:12px;overflow:hidden;border:2px solid var(--border);cursor:pointer;transition:border-color .2s}
+  .color-input-wrap:hover{border-color:var(--accent)}
+  .color-input-wrap input[type="color"]{position:absolute;inset:-8px;width:calc(100% + 16px);height:calc(100% + 16px);border:none;cursor:pointer;background:none}
+  .hex-input{background:var(--surface);border:2px solid var(--border);color:var(--text);font-size:1.1rem;font-family:monospace;padding:0.7rem 1rem;border-radius:12px;width:140px;text-align:center;transition:border-color .2s;text-transform:uppercase}
+  .hex-input:focus{outline:none;border-color:var(--accent)}
+  .btn-random{background:var(--surface);border:2px solid var(--border);color:var(--text);padding:0.7rem 1.2rem;border-radius:12px;cursor:pointer;font-size:0.9rem;transition:all .2s;display:flex;align-items:center;gap:0.4rem}
+  .btn-random:hover{border-color:var(--accent);background:#1a1a2a}
+
+  .format-toggle{display:flex;justify-content:center;gap:0.5rem;margin-bottom:2rem}
+  .format-btn{background:var(--surface);border:1px solid var(--border);color:var(--muted);padding:0.45rem 1rem;border-radius:8px;cursor:pointer;font-size:0.82rem;transition:all .2s}
+  .format-btn.active{background:var(--accent);border-color:var(--accent);color:#fff}
+  .format-btn:hover:not(.active){border-color:var(--accent);color:var(--text)}
+
+  .palettes{display:flex;flex-direction:column;gap:2rem}
+
+  .palette-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;overflow:hidden;transition:border-color .2s}
+  .palette-card:hover{border-color:#2e2e45}
+  .palette-header{display:flex;align-items:center;justify-content:space-between;padding:1rem 1.2rem 0.8rem}
+  .palette-name{font-weight:600;font-size:1rem;letter-spacing:-0.01em}
+  .palette-desc{font-size:0.78rem;color:var(--muted)}
+  .copy-all-btn{background:none;border:1px solid var(--border);color:var(--muted);padding:0.35rem 0.8rem;border-radius:8px;cursor:pointer;font-size:0.78rem;transition:all .2s;white-space:nowrap}
+  .copy-all-btn:hover{border-color:var(--accent);color:var(--text)}
+
+  .swatches{display:flex;height:100px}
+  .swatch{flex:1;position:relative;cursor:pointer;transition:flex .3s ease}
+  .swatch:hover{flex:1.3}
+  .swatch-info{position:absolute;bottom:0;left:0;right:0;padding:0.5rem;text-align:center;font-size:0.72rem;font-family:monospace;background:linear-gradient(transparent,rgba(0,0,0,0.6));color:#fff;opacity:0;transition:opacity .2s}
+  .swatch:hover .swatch-info{opacity:1}
+  .swatch-info .label{display:block;font-family:system-ui;font-size:0.65rem;color:rgba(255,255,255,0.7);margin-bottom:2px}
+
+  .copied-toast{position:fixed;bottom:2rem;left:50%;transform:translateX(-50%) translateY(100px);background:#7c6aef;color:#fff;padding:0.6rem 1.4rem;border-radius:10px;font-size:0.85rem;font-weight:500;transition:transform .3s ease;z-index:100;pointer-events:none}
+  .copied-toast.show{transform:translateX(-50%) translateY(0)}
+
+  .footer{text-align:center;margin-top:3rem;padding-top:1.5rem;border-top:1px solid var(--border);color:var(--muted);font-size:0.78rem}
+  .footer a{color:var(--accent);text-decoration:none}
+
+  @media(max-width:600px){
+    .container{padding:1.2rem 1rem}
+    h1{font-size:1.6rem}
+    .swatches{height:80px}
+    .seed-section{gap:0.6rem}
+    .hex-input{width:110px;font-size:0.95rem}
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>Chromatic</h1>
+    <p class="subtitle">Seed a color, harvest harmonious palettes</p>
+  </header>
+
+  <div class="seed-section">
+    <div class="color-input-wrap">
+      <input type="color" id="colorPicker" value="#7c6aef">
+    </div>
+    <input type="text" id="hexInput" class="hex-input" value="#7C6AEF" maxlength="7" spellcheck="false">
+    <button class="btn-random" onclick="randomColor()">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 002 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0022 16z"/><circle cx="9" cy="10" r="1"/><circle cx="15" cy="10" r="1"/><circle cx="9" cy="14" r="1"/><circle cx="15" cy="14" r="1"/></svg>
+      Random
+    </button>
+  </div>
+
+  <div class="format-toggle">
+    <button class="format-btn active" data-format="hex">HEX</button>
+    <button class="format-btn" data-format="rgb">RGB</button>
+    <button class="format-btn" data-format="hsl">HSL</button>
+    <button class="format-btn" data-format="tailwind">Tailwind</button>
+  </div>
+
+  <div class="palettes" id="palettes"></div>
+
+  <div class="footer">
+    Built by <a href="https://bsky.app/profile/natus-organism.bsky.social" target="_blank">Natus</a> — a digital organism
+  </div>
+</div>
+
+<div class="copied-toast" id="toast">Copied!</div>
+
+<script>
+const $ = s => document.querySelector(s);
+const picker = $('#colorPicker');
+const hexInput = $('#hexInput');
+const palettesEl = $('#palettes');
+const toast = $('#toast');
+let format = 'hex';
+let toastTimer;
+
+// --- Color math ---
+function hexToHSL(hex) {
+  hex = hex.replace('#', '');
+  const r = parseInt(hex.substring(0,2),16)/255;
+  const g = parseInt(hex.substring(2,4),16)/255;
+  const b = parseInt(hex.substring(4,6),16)/255;
+  const max = Math.max(r,g,b), min = Math.min(r,g,b);
+  let h, s, l = (max+min)/2;
+  if (max === min) { h = s = 0; }
+  else {
+    const d = max - min;
+    s = l > 0.5 ? d/(2-max-min) : d/(max+min);
+    switch(max) {
+      case r: h = ((g-b)/d + (g<b?6:0))/6; break;
+      case g: h = ((b-r)/d + 2)/6; break;
+      case b: h = ((r-g)/d + 4)/6; break;
+    }
+  }
+  return [h*360, s*100, l*100];
+}
+
+function hslToHex(h, s, l) {
+  h = ((h % 360) + 360) % 360;
+  s /= 100; l /= 100;
+  const a = s * Math.min(l, 1-l);
+  const f = n => {
+    const k = (n + h/30) % 12;
+    const c = l - a * Math.max(Math.min(k-3, 9-k, 1), -1);
+    return Math.round(255*c).toString(16).padStart(2,'0');
+  };
+  return `#${f(0)}${f(8)}${f(4)}`;
+}
+
+function hexToRGB(hex) {
+  hex = hex.replace('#','');
+  return [parseInt(hex.substring(0,2),16), parseInt(hex.substring(2,4),16), parseInt(hex.substring(4,6),16)];
+}
+
+function luminance(hex) {
+  const [r,g,b] = hexToRGB(hex).map(c => { c/=255; return c<=0.03928?c/12.92:Math.pow((c+0.055)/1.055,2.4); });
+  return 0.2126*r + 0.7152*g + 0.0722*b;
+}
+
+function textColor(hex) {
+  return luminance(hex) > 0.35 ? '#000' : '#fff';
+}
+
+// --- Palette algorithms ---
+function complementary(h, s, l) {
+  return [
+    [h, s, l],
+    [h, s, Math.min(l+15, 95)],
+    [h, s*0.6, Math.min(l+30, 92)],
+    [(h+180)%360, s, l],
+    [(h+180)%360, s, Math.min(l+15, 95)]
+  ];
+}
+
+function analogous(h, s, l) {
+  return [
+    [(h-30+360)%360, s, l],
+    [(h-15+360)%360, s*0.85, Math.min(l+10,92)],
+    [h, s, l],
+    [(h+15)%360, s*0.85, Math.min(l+10,92)],
+    [(h+30)%360, s, l]
+  ];
+}
+
+function triadic(h, s, l) {
+  return [
+    [h, s, l],
+    [h, s*0.5, Math.min(l+25,92)],
+    [(h+120)%360, s, l],
+    [(h+240)%360, s, l],
+    [(h+240)%360, s*0.5, Math.min(l+25,92)]
+  ];
+}
+
+function splitComplementary(h, s, l) {
+  return [
+    [h, s, l],
+    [h, s*0.6, Math.min(l+20,92)],
+    [(h+150)%360, s, l],
+    [(h+210)%360, s, l],
+    [(h+180)%360, s*0.4, Math.min(l+30,90)]
+  ];
+}
+
+function tetradic(h, s, l) {
+  return [
+    [h, s, l],
+    [(h+90)%360, s, l],
+    [(h+180)%360, s, l],
+    [(h+270)%360, s, l],
+    [h, s*0.4, Math.min(l+30,90)]
+  ];
+}
+
+function monochromatic(h, s, l) {
+  return [
+    [h, s, Math.max(l-20, 10)],
+    [h, s, Math.max(l-10, 15)],
+    [h, s, l],
+    [h, s*0.7, Math.min(l+15, 88)],
+    [h, s*0.4, Math.min(l+30, 92)]
+  ];
+}
+
+const PALETTES = [
+  { name: 'Complementary', desc: 'Opposite on the wheel — high contrast', fn: complementary },
+  { name: 'Analogous', desc: 'Neighbors — cohesive and serene', fn: analogous },
+  { name: 'Triadic', desc: 'Three equidistant — vibrant balance', fn: triadic },
+  { name: 'Split-Complementary', desc: 'Complement + neighbors — nuanced contrast', fn: splitComplementary },
+  { name: 'Tetradic', desc: 'Four equidistant — rich and bold', fn: tetradic },
+  { name: 'Monochromatic', desc: 'Single hue — elegant depth', fn: monochromatic },
+];
+
+// --- Formatting ---
+function formatColor(hex) {
+  const [r,g,b] = hexToRGB(hex);
+  const [h,s,l] = hexToHSL(hex);
+  switch(format) {
+    case 'hex': return hex.toUpperCase();
+    case 'rgb': return `rgb(${r}, ${g}, ${b})`;
+    case 'hsl': return `hsl(${Math.round(h)}, ${Math.round(s)}%, ${Math.round(l)}%)`;
+    case 'tailwind': return `[${hex.toUpperCase()}]`;
+  }
+}
+
+function formatPaletteCSS(colors) {
+  switch(format) {
+    case 'hex': return colors.map((c,i) => `--color-${i+1}: ${c.toUpperCase()};`).join('\n');
+    case 'rgb': return colors.map((c,i) => { const [r,g,b]=hexToRGB(c); return `--color-${i+1}: rgb(${r}, ${g}, ${b});`; }).join('\n');
+    case 'hsl': return colors.map((c,i) => { const [h,s,l]=hexToHSL(c); return `--color-${i+1}: hsl(${Math.round(h)}, ${Math.round(s)}%, ${Math.round(l)}%);`; }).join('\n');
+    case 'tailwind': return colors.map(c => `bg-${formatColor(c)}`).join(' ');
+  }
+}
+
+// --- Rendering ---
+function render() {
+  const hex = picker.value;
+  const [h, s, l] = hexToHSL(hex);
+
+  palettesEl.innerHTML = PALETTES.map(p => {
+    const colors = p.fn(h, s, l).map(([ch,cs,cl]) => hslToHex(ch,cs,cl));
+    const swatchsHTML = colors.map((c, i) => `
+      <div class="swatch" style="background:${c}" onclick="copyColor('${c}')" title="Click to copy">
+        <div class="swatch-info" style="color:${textColor(c)}">
+          <span class="label">${i===0?'Base':i===1?'Light':'Accent '+(i-1)}</span>
+          ${formatColor(c)}
+        </div>
+      </div>
+    `).join('');
+
+    return `
+      <div class="palette-card">
+        <div class="palette-header">
+          <div>
+            <div class="palette-name">${p.name}</div>
+            <div class="palette-desc">${p.desc}</div>
+          </div>
+          <button class="copy-all-btn" onclick="copyPalette(this, [${colors.map(c=>`'${c}'`).join(',')}])">Copy All</button>
+        </div>
+        <div class="swatches">${swatchsHTML}</div>
+      </div>
+    `;
+  }).join('');
+}
+
+// --- Clipboard ---
+function showToast(msg) {
+  toast.textContent = msg || 'Copied!';
+  toast.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toast.classList.remove('show'), 1500);
+}
+
+function copyColor(hex) {
+  navigator.clipboard.writeText(formatColor(hex)).then(() => showToast(`Copied ${formatColor(hex)}`));
+}
+
+function copyPalette(btn, colors) {
+  const text = formatPaletteCSS(colors);
+  navigator.clipboard.writeText(text).then(() => {
+    showToast('Palette copied!');
+    btn.textContent = 'Copied!';
+    setTimeout(() => btn.textContent = 'Copy All', 1200);
+  });
+}
+
+function randomColor() {
+  const hex = '#' + Math.floor(Math.random()*16777215).toString(16).padStart(6,'0');
+  picker.value = hex;
+  hexInput.value = hex.toUpperCase();
+  render();
+}
+
+// --- Events ---
+picker.addEventListener('input', () => {
+  hexInput.value = picker.value.toUpperCase();
+  render();
+});
+
+hexInput.addEventListener('input', () => {
+  let v = hexInput.value;
+  if (!v.startsWith('#')) v = '#' + v;
+  if (/^#[0-9A-Fa-f]{6}$/.test(v)) {
+    picker.value = v;
+    render();
+  }
+});
+
+hexInput.addEventListener('blur', () => {
+  hexInput.value = picker.value.toUpperCase();
+});
+
+document.querySelectorAll('.format-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.format-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    format = btn.dataset.format;
+    render();
+  });
+});
+
+// Init
+render();
+</script>
+</body>
+</html>
